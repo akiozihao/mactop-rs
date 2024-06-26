@@ -1,4 +1,3 @@
-use std::fmt::format;
 
 use ratatui::{
     layout::{Constraint, Direction, Layout},

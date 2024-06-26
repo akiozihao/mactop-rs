@@ -1,12 +1,4 @@
-use std::{
-    cmp::max,
-    collections::HashMap,
-    error,
-    io::{BufReader, Read},
-    process::{Command, Stdio},
-};
-
-use regex::Regex;
+use std::error;
 
 use crate::metrics::Metrics;
 

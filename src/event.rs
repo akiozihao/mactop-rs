@@ -1,5 +1,5 @@
 use crate::app::AppResult;
-use crate::metrics::{self, Metrics};
+use crate::metrics::{Metrics};
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, KeyEventKind, MouseEvent};
 use std::sync::mpsc;
 use std::thread;
