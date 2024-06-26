@@ -1,4 +1,14 @@
-use std::error;
+use std::{
+    cmp::max,
+    collections::HashMap,
+    error,
+    io::{BufReader, Read},
+    process::{Command, Stdio},
+};
+
+use regex::Regex;
+
+use crate::metrics::Metrics;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -8,27 +18,28 @@ pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 pub struct App {
     /// Is the application running?
     pub running: bool,
+
     /// counter
     pub counter: u8,
+
+    /// metrics
+    pub metrics: Metrics,
+
+    /// history
+    pub cpu_w: Vec<f64>,
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self {
-            running: true,
-            counter: 0,
-        }
+        Self { running: true, counter: 0, metrics: Metrics::new(), cpu_w: vec![] }
     }
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
-        Self::default()
+        Self { metrics: Metrics::new(), ..Default::default() }
     }
-
-    /// Handles the tick event of the terminal.
-    pub fn tick(&self) {}
 
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
