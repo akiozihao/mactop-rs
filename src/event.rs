@@ -1,8 +1,8 @@
-use crate::app::AppResult;
-use crate::metrics::{Metrics};
+use std::{sync::mpsc, thread};
+
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, KeyEventKind, MouseEvent};
-use std::sync::mpsc;
-use std::thread;
+
+use crate::{app::AppResult, metrics::Metrics};
 
 /// Terminal events.
 #[derive(Clone, Debug)]
@@ -31,7 +31,7 @@ pub struct EventHandler {
 
 impl EventHandler {
     /// Constructs a new instance of [`EventHandler`].
-    pub fn new(tick_rate: u64) -> Self {
+    pub fn new(_tick_rate: u64) -> Self {
         let (tx, rx) = mpsc::channel();
         let tx_key = tx.clone();
         thread::spawn(move || loop {
@@ -42,14 +42,13 @@ impl EventHandler {
                     } else {
                         Ok(())
                     }
-                }
+                },
                 CrosstermEvent::Mouse(e) => tx_key.send(Event::Mouse(e)),
                 CrosstermEvent::Resize(w, h) => tx_key.send(Event::Resize(w, h)),
                 CrosstermEvent::FocusGained => Ok(()),
                 CrosstermEvent::FocusLost => Ok(()),
                 CrosstermEvent::Paste(_) => unimplemented!(),
-            }
-            .expect("failed to send terminal event")
+            }.expect("failed to send terminal event")
         });
         let tx_metrics = tx.clone();
 
@@ -60,10 +59,7 @@ impl EventHandler {
                 panic!("{}", msg);
             }
         });
-        Self {
-            sender: tx,
-            receiver: rx,
-        }
+        Self { sender: tx, receiver: rx }
     }
 
     /// Receive the next event from the handler thread.

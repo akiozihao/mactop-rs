@@ -22,9 +22,8 @@ pub struct Metrics {
     /// net disk metrics
     pub net_disk_metrics: NetDiskMetrics,
 
-    /// process metrics
-    pub process_metrics: ProcessMetrics,
-
+    // /// process metrics
+    // pub process_metrics: ProcessMetrics,
     /// os info
     pub soc_info: HashMap<String, String>,
 
@@ -109,12 +108,12 @@ pub struct GPUMetrics {
     pub active: f64,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct ProcessMetrics {
-    id: i64,
-    name: String,
-    cpu_usage: f64,
-}
+// #[derive(Debug, Default, Clone)]
+// pub struct ProcessMetrics {
+//     id: i64,
+//     name: String,
+//     cpu_usage: f64,
+// }
 
 impl Metrics {
     pub fn new() -> Self {
@@ -135,25 +134,23 @@ impl Metrics {
             cpu_metrics: CPUMetrics::default(),
             gpu_metrics: GPUMetrics::default(),
             net_disk_metrics: NetDiskMetrics::default(),
-            process_metrics: ProcessMetrics::default(),
+            // process_metrics: ProcessMetrics::default(),
         }
     }
 
     pub fn collect_metrics(&mut self) {
-        let mut child = Command::new("powermetrics")
-            .args([
-                "--samplers",
-                "cpu_power,gpu_power,thermal,network,disk",
-                "--show-process-gpu",
-                "--show-process-energy",
-                "--show-initial-usage",
-                "--show-process-netstats",
-                "-n 1",
-                "-i 1000",
-            ])
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
+        let mut child =
+            Command::new("powermetrics").args(["--samplers",
+                                               "cpu_power,gpu_power,thermal,network,disk",
+                                               "--show-process-gpu",
+                                               "--show-process-energy",
+                                               "--show-initial-usage",
+                                               "--show-process-netstats",
+                                               "-n 1",
+                                               "-i 1000"])
+                                        .stdout(Stdio::piped())
+                                        .spawn()
+                                        .unwrap();
         if let Some(stdout) = child.stdout.take() {
             let mut reader = BufReader::new(stdout);
             let mut info = String::new();
@@ -193,13 +190,7 @@ impl Metrics {
 
         let mut e_cluster_freq_total = 0i64;
         info.split('\n')
-            .map(|line| {
-                (
-                    self.residency_re.captures(line),
-                    self.frequency_re.captures(line),
-                    line,
-                )
-            })
+            .map(|line| (self.residency_re.captures(line), self.frequency_re.captures(line), line))
             .for_each(|(residency_opt, frequency_opt, line)| {
                 if let Some(residency) = residency_opt {
                     let cluster = &residency[1];
@@ -208,22 +199,22 @@ impl Metrics {
                         "E0-Cluster" => {
                             // println!("{}", &residency[2]);
                             self.cpu_metrics.e0_cluster_active = value;
-                        }
+                        },
                         "E1-Cluster" => {
                             self.cpu_metrics.e1_cluster_active = value;
-                        }
+                        },
                         "P0-Cluster" => {
                             self.cpu_metrics.p0_cluster_active = value;
-                        }
+                        },
                         "P1-Cluster" => {
                             self.cpu_metrics.p1_cluster_active = value;
-                        }
+                        },
                         "P2-Cluster" => {
                             self.cpu_metrics.p2_cluster_active = value;
-                        }
+                        },
                         _ => {
                             // println!("{}", &residency[1]);
-                        }
+                        },
                     }
                     if cluster.starts_with('E') {
                         e_cluster_active_total += value;
@@ -241,22 +232,22 @@ impl Metrics {
                     match cluster {
                         "E0-Cluster" => {
                             self.cpu_metrics.e0_cluster_freq_mhz = value;
-                        }
+                        },
                         "E1-Cluster" => {
                             self.cpu_metrics.e1_cluster_freq_mhz = value;
-                        }
+                        },
                         "P0-Cluster" => {
                             self.cpu_metrics.p0_cluster_freq_mhz = value;
-                        }
+                        },
                         "P1-Cluster" => {
                             self.cpu_metrics.p1_cluster_freq_mhz = value;
-                        }
+                        },
                         "P2-Cluster" => {
                             self.cpu_metrics.p2_cluster_freq_mhz = value;
-                        }
+                        },
                         _ => {
                             // println!("{}", &frequency[1]);
-                        }
+                        },
                     }
                     if cluster.starts_with('E') {
                         e_cluster_freq_total += value;
@@ -299,10 +290,8 @@ impl Metrics {
                 // M1 Pro
                 self.cpu_metrics.p_cluster_active =
                     (self.cpu_metrics.p0_cluster_active + self.cpu_metrics.p1_cluster_active) / 2;
-                self.cpu_metrics.p_cluster_freq_mhz = max(
-                    self.cpu_metrics.p0_cluster_freq_mhz,
-                    self.cpu_metrics.p1_cluster_freq_mhz,
-                );
+                self.cpu_metrics.p_cluster_freq_mhz =
+                    max(self.cpu_metrics.p0_cluster_freq_mhz, self.cpu_metrics.p1_cluster_freq_mhz);
 
                 if e_cluster_count > 0 {
                     self.cpu_metrics.e_cluster_active = e_cluster_active_total / e_cluster_count;
@@ -313,12 +302,10 @@ impl Metrics {
     fn parse_activity_metrics(&mut self, info: &str) {
         info.split('\n')
             .map(|line| {
-                (
-                    self.in_re.captures(line),
-                    self.out_re.captures(line),
-                    self.read_re.captures(line),
-                    self.write_re.captures(line),
-                )
+                (self.in_re.captures(line),
+                 self.out_re.captures(line),
+                 self.read_re.captures(line),
+                 self.write_re.captures(line))
             })
             .for_each(|(in_opts, out_opts, read_opts, write_opts)| {
                 if let Some(in_caps) = in_opts {
@@ -348,13 +335,14 @@ impl Metrics {
     }
 
     fn parse_process_metrics(&mut self, info: &str) {
-        info.split('\n')
-            .map(|line| self.data_re.captures(line))
-            .for_each(|data_ops| {
-                if let Some(data_caps) = data_ops {
-                    // println!("data: {:?}", data_caps);
-                }
-            })
+        info.split('\n').map(|line| self.data_re.captures(line)).for_each(|data_ops| {
+                                                                    if let Some(_data_caps) =
+                                                                        data_ops
+                                                                    {
+                                                                        // println!("data: {:?}",
+                                                                        // data_caps);
+                                                                    }
+                                                                })
     }
 }
 
@@ -375,14 +363,8 @@ fn get_soc_info() -> HashMap<String, String> {
     if let Some(val) = core_count.get("hw.perflevel0.logicalcpu") {
         res.insert("p_core_count".to_string(), val.to_owned());
     }
-    res.insert(
-        "name".to_string(),
-        cpu_info["machdep.cpu.brand_string"].to_owned(),
-    );
-    res.insert(
-        "core_count".to_string(),
-        cpu_info["machdep.cpu.core_count"].to_owned(),
-    );
+    res.insert("name".to_string(), cpu_info["machdep.cpu.brand_string"].to_owned());
+    res.insert("core_count".to_string(), cpu_info["machdep.cpu.core_count"].to_owned());
     res.insert("gpu_core_count".to_string(), get_gpu_cores());
 
     res
@@ -390,33 +372,26 @@ fn get_soc_info() -> HashMap<String, String> {
 
 fn get_cpu_info() -> HashMap<String, String> {
     let mut res = HashMap::new();
-    let mut child = Command::new("sysctl")
-        .args(["machdep.cpu"])
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child =
+        Command::new("sysctl").args(["machdep.cpu"]).stdout(Stdio::piped()).spawn().unwrap();
     if let Some(stdout) = child.stdout.take() {
         let mut reader = BufReader::new(stdout);
         let mut info = String::new();
         reader.read_to_string(&mut info).unwrap();
 
         info.split('\n').for_each(|line| {
-            if line.contains("machdep.cpu.brand_string") {
-                if let Some((_, brand_string)) = line.split_once(':') {
-                    res.insert(
-                        "machdep.cpu.brand_string".to_string(),
-                        brand_string.trim().to_string(),
-                    );
-                }
-            } else if line.contains("machdep.cpu.core_count") {
-                if let Some((_, brand_string)) = line.split_once(':') {
-                    res.insert(
-                        "machdep.cpu.core_count".to_string(),
-                        brand_string.trim().to_string(),
-                    );
-                }
-            }
-        })
+                            if line.contains("machdep.cpu.brand_string") {
+                                if let Some((_, brand_string)) = line.split_once(':') {
+                                    res.insert("machdep.cpu.brand_string".to_string(),
+                                               brand_string.trim().to_string());
+                                }
+                            } else if line.contains("machdep.cpu.core_count") {
+                                if let Some((_, brand_string)) = line.split_once(':') {
+                                    res.insert("machdep.cpu.core_count".to_string(),
+                                               brand_string.trim().to_string());
+                                }
+                            }
+                        })
     }
 
     res
@@ -424,44 +399,40 @@ fn get_cpu_info() -> HashMap<String, String> {
 
 fn get_core_count() -> HashMap<String, String> {
     let mut res = HashMap::new();
-    let mut child = Command::new("sysctl")
-        .args(["hw.perflevel0.logicalcpu", "hw.perflevel1.logicalcpu"])
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = Command::new("sysctl").args(["hw.perflevel0.logicalcpu",
+                                                 "hw.perflevel1.logicalcpu"])
+                                          .stdout(Stdio::piped())
+                                          .spawn()
+                                          .unwrap();
     if let Some(stdout) = child.stdout.take() {
         let mut reader = BufReader::new(stdout);
         let mut info = String::new();
         reader.read_to_string(&mut info).unwrap();
 
         info.split('\n').for_each(|line| {
-            if line.contains("hw.perflevel0.logicalcpu") {
-                if let Some((_, brand_string)) = line.split_once(':') {
-                    res.insert(
-                        "hw.perflevel0.logicalcpu".to_string(),
-                        brand_string.trim().to_string(),
-                    );
-                }
-            } else if line.contains("hw.perflevel1.logicalcpu") {
-                if let Some((_, brand_string)) = line.split_once(':') {
-                    res.insert(
-                        "hw.perflevel1.logicalcpu".to_string(),
-                        brand_string.trim().to_string(),
-                    );
-                }
-            }
-        })
+                            if line.contains("hw.perflevel0.logicalcpu") {
+                                if let Some((_, brand_string)) = line.split_once(':') {
+                                    res.insert("hw.perflevel0.logicalcpu".to_string(),
+                                               brand_string.trim().to_string());
+                                }
+                            } else if line.contains("hw.perflevel1.logicalcpu") {
+                                if let Some((_, brand_string)) = line.split_once(':') {
+                                    res.insert("hw.perflevel1.logicalcpu".to_string(),
+                                               brand_string.trim().to_string());
+                                }
+                            }
+                        })
     }
 
     res
 }
 
 fn get_gpu_cores() -> String {
-    let mut child = Command::new("system_profiler")
-        .args(["-detailLevel", "basic", "SPDisplaysDataType"])
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child =
+        Command::new("system_profiler").args(["-detailLevel", "basic", "SPDisplaysDataType"])
+                                       .stdout(Stdio::piped())
+                                       .spawn()
+                                       .unwrap();
     if let Some(stdout) = child.stdout.take() {
         let mut reader = BufReader::new(stdout);
         let mut info = String::new();
